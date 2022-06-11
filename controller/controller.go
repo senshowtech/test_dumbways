@@ -12,6 +12,8 @@ import (
 const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
+var datas []string
+
 func ConsumePay(ctx *fiber.Ctx) {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
@@ -43,7 +45,7 @@ func ConsumePay(ctx *fiber.Ctx) {
 
 	go func() {
 		for d := range msgs {
-			fmt.Printf("Recieved Message: %s\n", d.Body)
+			datas = append(datas, string(d.Body))
 		}
 	}()
 
@@ -153,9 +155,17 @@ func Login(ctx *fiber.Ctx) {
 	})
 }
 
-func Secure(ctx *fiber.Ctx) {
+func Transaction(ctx *fiber.Ctx) {
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	id := claims["sub"].(string)
-	ctx.Send(fmt.Sprintf("Hello user with id: %s", id))
+
+	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"datas": datas,
+		"user": struct {
+			Id string `json:"id"`
+		}{
+			Id: id,
+		},
+	})
 }
