@@ -1,6 +1,8 @@
 package controller
 
 import (
+	Model "dumbways/model"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,12 +14,10 @@ import (
 const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
-var transaction []string
-var balance []string
-
 func ConsumeTransaction(ctx *fiber.Ctx) {
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(url)
+
 	if err != nil {
 		fmt.Println("Failed Initializing Broker Connection")
 		panic(err)
@@ -43,28 +43,50 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 		nil,
 	)
 
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("Successfully Connected to our RabbitMQ Instance")
+	fmt.Println(" [*] - Waiting for messages")
+
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			fmt.Println(string(d.Body))
-			transaction = append(transaction, string(d.Body))
+
+			var jsonData = []byte(d.Body)
+			var data Model.ResponseData
+
+			var err = json.Unmarshal(jsonData, &data)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			fmt.Println("Price  :", data.Price)
+
 		}
 	}()
 
-	fmt.Println("Successfully Connected to our RabbitMQ Instance")
-	fmt.Println(" [*] - Waiting for messages")
 	<-forever
 }
 
 func PublishTransaction(ctx *fiber.Ctx) {
 
-	type request struct {
-		Message string `json:"message"`
+	var body Model.Transaction
+	err := ctx.BodyParser(&body)
+	if err != nil {
+		fmt.Println("There is nothing in Body")
+		panic(err)
 	}
 
-	var body request
-	err := ctx.BodyParser(&body)
+	x := Model.Transaction{
+		Status: body.Status,
+		Price:  body.Price,
+	}
+
+	data, _ := json.Marshal(x)
 
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -99,106 +121,11 @@ func PublishTransaction(ctx *fiber.Ctx) {
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body.Message),
+			ContentType:  "application/json",
+			Body:         data,
+			DeliveryMode: amqp.Persistent,
 		},
 	)
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	ctx.Send("Successfully Published Message to Queue")
-}
-
-func ConsumeBalance(ctx *fiber.Ctx) {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	if err != nil {
-		fmt.Println("Failed Initializing Broker Connection")
-		panic(err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer ch.Close()
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	msgs, err := ch.Consume(
-		"balance",
-		"",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-
-	forever := make(chan bool)
-
-	go func() {
-		for d := range msgs {
-			fmt.Println(string(d.Body))
-			balance = append(balance, string(d.Body))
-		}
-	}()
-
-	fmt.Println("Successfully Connected to our RabbitMQ Instance")
-	fmt.Println(" [*] - Waiting for messages")
-	<-forever
-}
-
-func PublishBalance(ctx *fiber.Ctx) {
-
-	type request struct {
-		Message string `json:"message"`
-	}
-
-	var body request
-	err := ctx.BodyParser(&body)
-
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		fmt.Println("Failed Initializing Broker Connection")
-		panic(err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		"balance",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-
-	fmt.Println(q)
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = ch.Publish(
-		"",
-		"balance",
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body.Message),
-		},
-	)
-
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -253,34 +180,18 @@ func Login(ctx *fiber.Ctx) {
 	})
 }
 
-func Transaction(ctx *fiber.Ctx) {
+// func Transaction(ctx *fiber.Ctx) {
 
-	user := ctx.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	id := claims["sub"].(string)
+// 	user := ctx.Locals("user").(*jwt.Token)
+// 	claims := user.Claims.(jwt.MapClaims)
+// 	id := claims["sub"].(string)
 
-	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"user": struct {
-			Id string `json:"id"`
-		}{
-			Id: id,
-		},
-		"transaction": transaction,
-	})
-}
-
-func Balance(ctx *fiber.Ctx) {
-
-	user := ctx.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	id := claims["sub"].(string)
-
-	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"user": struct {
-			Id string `json:"id"`
-		}{
-			Id: id,
-		},
-		"balance": balance,
-	})
-}
+// 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+// 		"user": struct {
+// 			Id string `json:"id"`
+// 		}{
+// 			Id: id,
+// 		},
+// 		"transaction": transaction,
+// 	})
+// }
