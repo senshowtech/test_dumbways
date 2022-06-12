@@ -13,13 +13,17 @@ const jwtSecret = "secret"
 func main() {
 	app := fiber.New()
 	app.Use(middleware.Logger())
-	app.Get("/", func(ctx *fiber.Ctx) {
-		ctx.Send("Hello world")
-	})
-	app.Post("/create", controller.PublishPay)
+
+	app.Get("/consume/transaction", controller.ConsumeTransaction)
+	app.Post("/create/transaction", controller.PublishTransaction)
+
+	app.Get("/consume/balance", controller.ConsumeBalance)
+	app.Post("/create/balance", controller.PublishBalance)
+
 	app.Post("/login", controller.Login)
-	app.Get("/consume", controller.ConsumePay)
-	app.Get("/hello", middlewares.AuthRequired(), controller.Transaction)
+	app.Get("/transaction", middlewares.AuthRequired(), controller.Transaction)
+	app.Get("/balance", middlewares.AuthRequired(), controller.Balance)
+
 	err := app.Listen(3000)
 	if err != nil {
 		panic(err)

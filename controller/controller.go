@@ -12,9 +12,11 @@ import (
 const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
-var datas []string
+var transaction []string
+var balance []string
 
-func ConsumePay(ctx *fiber.Ctx) {
+func ConsumeTransaction(ctx *fiber.Ctx) {
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		fmt.Println("Failed Initializing Broker Connection")
@@ -32,7 +34,7 @@ func ConsumePay(ctx *fiber.Ctx) {
 	}
 
 	msgs, err := ch.Consume(
-		"ewallet",
+		"transaction",
 		"",
 		true,
 		false,
@@ -45,17 +47,18 @@ func ConsumePay(ctx *fiber.Ctx) {
 
 	go func() {
 		for d := range msgs {
-			datas = append(datas, string(d.Body))
+			fmt.Println(string(d.Body))
+			transaction = append(transaction, string(d.Body))
 		}
 	}()
 
 	fmt.Println("Successfully Connected to our RabbitMQ Instance")
 	fmt.Println(" [*] - Waiting for messages")
 	<-forever
-
 }
 
-func PublishPay(ctx *fiber.Ctx) {
+func PublishTransaction(ctx *fiber.Ctx) {
+
 	type request struct {
 		Message string `json:"message"`
 	}
@@ -76,7 +79,7 @@ func PublishPay(ctx *fiber.Ctx) {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"ewallet",
+		"transaction",
 		false,
 		false,
 		false,
@@ -92,7 +95,102 @@ func PublishPay(ctx *fiber.Ctx) {
 
 	err = ch.Publish(
 		"",
-		"ewallet",
+		"transaction",
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(body.Message),
+		},
+	)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	ctx.Send("Successfully Published Message to Queue")
+}
+
+func ConsumeBalance(ctx *fiber.Ctx) {
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		fmt.Println("Failed Initializing Broker Connection")
+		panic(err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer ch.Close()
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	msgs, err := ch.Consume(
+		"balance",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	forever := make(chan bool)
+
+	go func() {
+		for d := range msgs {
+			fmt.Println(string(d.Body))
+			balance = append(balance, string(d.Body))
+		}
+	}()
+
+	fmt.Println("Successfully Connected to our RabbitMQ Instance")
+	fmt.Println(" [*] - Waiting for messages")
+	<-forever
+}
+
+func PublishBalance(ctx *fiber.Ctx) {
+
+	type request struct {
+		Message string `json:"message"`
+	}
+
+	var body request
+	err := ctx.BodyParser(&body)
+
+	conn, err := amqp.Dial(url)
+	if err != nil {
+		fmt.Println("Failed Initializing Broker Connection")
+		panic(err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare(
+		"balance",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	fmt.Println(q)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = ch.Publish(
+		"",
+		"balance",
 		false,
 		false,
 		amqp.Publishing{
@@ -156,16 +254,33 @@ func Login(ctx *fiber.Ctx) {
 }
 
 func Transaction(ctx *fiber.Ctx) {
+
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	id := claims["sub"].(string)
 
 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"datas": datas,
 		"user": struct {
 			Id string `json:"id"`
 		}{
 			Id: id,
 		},
+		"transaction": transaction,
+	})
+}
+
+func Balance(ctx *fiber.Ctx) {
+
+	user := ctx.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	id := claims["sub"].(string)
+
+	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"user": struct {
+			Id string `json:"id"`
+		}{
+			Id: id,
+		},
+		"balance": balance,
 	})
 }
