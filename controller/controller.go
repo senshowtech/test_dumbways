@@ -15,6 +15,7 @@ const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
 var transaction []Model.Transaction
+var balance []Model.Balance
 
 func ConsumeTransaction(ctx *fiber.Ctx) {
 
@@ -134,7 +135,126 @@ func PublishTransaction(ctx *fiber.Ctx) {
 	}
 
 	ctx.Send("Successfully Published Message to Queue")
+}
 
+func ConsumeBalance(ctx *fiber.Ctx) {
+
+	conn, err := amqp.Dial(url)
+
+	if err != nil {
+		fmt.Println("Failed Initializing Broker Connection")
+		panic(err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer ch.Close()
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	msgs, err := ch.Consume(
+		"Balance",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("Successfully Connected to our RabbitMQ Instance")
+	fmt.Println(" [*] - Waiting for messages")
+
+	forever := make(chan bool)
+
+	go func() {
+		for d := range msgs {
+
+			var jsonData = []byte(d.Body)
+			var data Model.Balance
+
+			var err = json.Unmarshal(jsonData, &data)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			balance = append(balance, Model.Balance(data))
+
+		}
+	}()
+
+	<-forever
+}
+
+func PublishBalance(ctx *fiber.Ctx) {
+
+	var body Model.Balance
+	err := ctx.BodyParser(&body)
+	if err != nil {
+		fmt.Println("There is nothing in Body")
+		panic(err)
+	}
+
+	x := Model.Balance{
+		Id:     body.Id,
+		Wallet: body.Wallet,
+		Status: body.Status,
+	}
+
+	data, _ := json.Marshal(x)
+
+	conn, err := amqp.Dial(url)
+	if err != nil {
+		fmt.Println("Failed Initializing Broker Connection")
+		panic(err)
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare(
+		"Balance",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	fmt.Println(q)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = ch.Publish(
+		"",
+		"Balance",
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         data,
+			DeliveryMode: amqp.Persistent,
+		},
+	)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	ctx.Send("Successfully Published Message to Queue")
 }
 
 func Login(ctx *fiber.Ctx) {
@@ -200,5 +320,24 @@ func Transaction(ctx *fiber.Ctx) {
 			Id: id,
 		},
 		"transaction": transaction,
+	})
+}
+
+func Balance(ctx *fiber.Ctx) {
+
+	user := ctx.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	id := claims["sub"].(string)
+
+	// s := transaction[len(transaction)-1]
+	// fmt.Println(s)
+
+	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"user": struct {
+			Id string `json:"id"`
+		}{
+			Id: id,
+		},
+		"balance": balance,
 	})
 }
