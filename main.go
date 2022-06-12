@@ -14,9 +14,9 @@ func main() {
 	app := fiber.New()
 	app.Use(middleware.Logger())
 
-	app.Get("/consume/wallet", controller.ConsumeWallet)
-	app.Post("/create/wallet", controller.PublishWallet)
-	app.Get("/wallet", middlewares.AuthRequired(), controller.Wallet)
+	app.Get("/consume/wallet", controller.ConsumeTransaction)
+	app.Post("/create/wallet", controller.PublishTransaction)
+	app.Get("/wallet", middlewares.AuthRequired(), controller.Transaction)
 
 	app.Post("/login", controller.Login)
 

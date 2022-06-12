@@ -14,9 +14,9 @@ import (
 const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
-var wallet []Model.Wallet
+var transaction []Model.Transaction
 
-func ConsumeWallet(ctx *fiber.Ctx) {
+func ConsumeTransaction(ctx *fiber.Ctx) {
 
 	conn, err := amqp.Dial(url)
 
@@ -58,7 +58,7 @@ func ConsumeWallet(ctx *fiber.Ctx) {
 		for d := range msgs {
 
 			var jsonData = []byte(d.Body)
-			var data Model.Wallet
+			var data Model.Transaction
 
 			var err = json.Unmarshal(jsonData, &data)
 			if err != nil {
@@ -66,7 +66,7 @@ func ConsumeWallet(ctx *fiber.Ctx) {
 				return
 			}
 
-			wallet = append(wallet, Model.Wallet(data))
+			transaction = append(transaction, Model.Transaction(data))
 
 		}
 	}()
@@ -74,20 +74,19 @@ func ConsumeWallet(ctx *fiber.Ctx) {
 	<-forever
 }
 
-func PublishWallet(ctx *fiber.Ctx) {
+func PublishTransaction(ctx *fiber.Ctx) {
 
-	var body Model.Wallet
+	var body Model.Transaction
 	err := ctx.BodyParser(&body)
 	if err != nil {
 		fmt.Println("There is nothing in Body")
 		panic(err)
 	}
 
-	x := Model.Wallet{
-		IdUser:       body.IdUser,
-		Wallet:       body.Wallet,
-		Pembelian:    body.Pembelian,
-		Statuswallet: body.Statuswallet,
+	x := Model.Transaction{
+		Id:     body.Id,
+		Price:  body.Price,
+		Status: body.Status,
 	}
 
 	data, _ := json.Marshal(x)
@@ -184,7 +183,7 @@ func Login(ctx *fiber.Ctx) {
 	})
 }
 
-func Wallet(ctx *fiber.Ctx) {
+func Transaction(ctx *fiber.Ctx) {
 
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
@@ -196,6 +195,6 @@ func Wallet(ctx *fiber.Ctx) {
 		}{
 			Id: id,
 		},
-		"wallet": wallet,
+		"transaction": transaction,
 	})
 }
