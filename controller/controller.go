@@ -58,7 +58,7 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 		for d := range msgs {
 
 			var jsonData = []byte(d.Body)
-			var data Model.ResponseData
+			var data Model.Transaction
 
 			var err = json.Unmarshal(jsonData, &data)
 			if err != nil {
