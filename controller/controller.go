@@ -14,6 +14,8 @@ import (
 const jwtSecret = "secret"
 const url = "amqp://guest:guest@localhost:5672/"
 
+var transaction []Model.Transaction
+
 func ConsumeTransaction(ctx *fiber.Ctx) {
 
 	conn, err := amqp.Dial(url)
@@ -64,7 +66,7 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 				return
 			}
 
-			fmt.Println("Price  :", data.Price)
+			transaction = append(transaction, Model.Transaction(data))
 
 		}
 	}()
@@ -180,18 +182,18 @@ func Login(ctx *fiber.Ctx) {
 	})
 }
 
-// func Transaction(ctx *fiber.Ctx) {
+func Transaction(ctx *fiber.Ctx) {
 
-// 	user := ctx.Locals("user").(*jwt.Token)
-// 	claims := user.Claims.(jwt.MapClaims)
-// 	id := claims["sub"].(string)
+	user := ctx.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	id := claims["sub"].(string)
 
-// 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-// 		"user": struct {
-// 			Id string `json:"id"`
-// 		}{
-// 			Id: id,
-// 		},
-// 		"transaction": transaction,
-// 	})
-// }
+	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"user": struct {
+			Id string `json:"id"`
+		}{
+			Id: id,
+		},
+		"transaction": transaction,
+	})
+}
