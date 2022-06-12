@@ -36,7 +36,7 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 	}
 
 	msgs, err := ch.Consume(
-		"Wallet",
+		"Transaction",
 		"",
 		true,
 		false,
@@ -104,7 +104,7 @@ func PublishTransaction(ctx *fiber.Ctx) {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"Wallet",
+		"Transaction",
 		false,
 		false,
 		false,
@@ -120,7 +120,7 @@ func PublishTransaction(ctx *fiber.Ctx) {
 
 	err = ch.Publish(
 		"",
-		"Wallet",
+		"Transaction",
 		false,
 		false,
 		amqp.Publishing{
@@ -134,6 +134,7 @@ func PublishTransaction(ctx *fiber.Ctx) {
 	}
 
 	ctx.Send("Successfully Published Message to Queue")
+
 }
 
 func Login(ctx *fiber.Ctx) {
@@ -188,6 +189,9 @@ func Transaction(ctx *fiber.Ctx) {
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	id := claims["sub"].(string)
+
+	// s := transaction[len(transaction)-1]
+	// fmt.Println(s)
 
 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": struct {
