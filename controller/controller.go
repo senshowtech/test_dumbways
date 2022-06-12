@@ -16,7 +16,7 @@ const url = "amqp://guest:guest@localhost:5672/"
 
 var wallet []Model.Wallet
 
-func ConsumeTransaction(ctx *fiber.Ctx) {
+func ConsumeWallet(ctx *fiber.Ctx) {
 
 	conn, err := amqp.Dial(url)
 
@@ -36,7 +36,7 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 	}
 
 	msgs, err := ch.Consume(
-		"transaction",
+		"Wallet",
 		"",
 		true,
 		false,
@@ -74,7 +74,7 @@ func ConsumeTransaction(ctx *fiber.Ctx) {
 	<-forever
 }
 
-func PublishTransaction(ctx *fiber.Ctx) {
+func PublishWallet(ctx *fiber.Ctx) {
 
 	var body Model.Wallet
 	err := ctx.BodyParser(&body)
@@ -84,8 +84,10 @@ func PublishTransaction(ctx *fiber.Ctx) {
 	}
 
 	x := Model.Wallet{
-		Status: body.Status,
-		Price:  body.Price,
+		IdUser:       body.IdUser,
+		Wallet:       body.Wallet,
+		Pembelian:    body.Pembelian,
+		Statuswallet: body.Statuswallet,
 	}
 
 	data, _ := json.Marshal(x)
@@ -103,7 +105,7 @@ func PublishTransaction(ctx *fiber.Ctx) {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"transaction",
+		"Wallet",
 		false,
 		false,
 		false,
@@ -119,7 +121,7 @@ func PublishTransaction(ctx *fiber.Ctx) {
 
 	err = ch.Publish(
 		"",
-		"transaction",
+		"Wallet",
 		false,
 		false,
 		amqp.Publishing{
@@ -182,7 +184,7 @@ func Login(ctx *fiber.Ctx) {
 	})
 }
 
-func Transaction(ctx *fiber.Ctx) {
+func Wallet(ctx *fiber.Ctx) {
 
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
