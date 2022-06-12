@@ -1,6 +1,6 @@
 package model
 
-type Transaction struct {
+type Wallet struct {
 	Status string  `json: "transaction"`
 	Price  float32 `json: "price"`
 }
