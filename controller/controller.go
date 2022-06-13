@@ -84,8 +84,12 @@ func PublishTransaction(ctx *fiber.Ctx) {
 		panic(err)
 	}
 
+	user := ctx.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	id := claims["sub"].(string)
+
 	x := Model.Transaction{
-		Id:     body.Id,
+		Id:     id,
 		Price:  body.Price,
 		Status: body.Status,
 	}
@@ -204,8 +208,12 @@ func PublishBalance(ctx *fiber.Ctx) {
 		panic(err)
 	}
 
+	user := ctx.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+	id := claims["sub"].(string)
+
 	x := Model.Balance{
-		Id:     body.Id,
+		Id:     id,
 		Wallet: body.Wallet,
 		Status: body.Status,
 	}
@@ -306,12 +314,20 @@ func Login(ctx *fiber.Ctx) {
 
 func Transaction(ctx *fiber.Ctx) {
 
+	var data_akhir []Model.Transaction
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	id := claims["sub"].(string)
 
-	// s := transaction[len(transaction)-1]
-	// fmt.Println(s)
+	if len(transaction) == 0 {
+		transaction = append(transaction, Model.Transaction{Price: 0, Status: "Belum ada pembayaran"})
+	}
+
+	for i := range transaction {
+		if transaction[i].Id == id {
+			data_akhir = append(data_akhir, transaction[i])
+		}
+	}
 
 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": struct {
@@ -319,18 +335,39 @@ func Transaction(ctx *fiber.Ctx) {
 		}{
 			Id: id,
 		},
-		"transaction": transaction,
+		"transaction": data_akhir,
 	})
 }
 
 func Balance(ctx *fiber.Ctx) {
 
+	var data_balance []Model.Balance
+	var data_transaksi []Model.Transaction
+
 	user := ctx.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	id := claims["sub"].(string)
 
-	// s := transaction[len(transaction)-1]
-	// fmt.Println(s)
+	if len(balance) == 0 {
+		data_balance = append(balance, Model.Balance{Wallet: 0, Status: "Belum ada Top Up"})
+	}
+
+	for i := range balance {
+		if balance[i].Id == id {
+			data_balance = append(data_balance, balance[i])
+		}
+	}
+
+	if len(transaction) != 0 {
+		for i := range transaction {
+			if transaction[i].Id == id {
+				data_transaksi = append(data_transaksi, transaction[i])
+			}
+		}
+		jumlah_transaksi := transaction[len(data_transaksi)-1]
+		jumlah_balance := balance[len(data_balance)-1]
+		data_balance = append(data_balance, Model.Balance{Wallet: jumlah_balance.Wallet - jumlah_transaksi.Price, Status: "success"})
+	}
 
 	ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": struct {
@@ -338,6 +375,6 @@ func Balance(ctx *fiber.Ctx) {
 		}{
 			Id: id,
 		},
-		"balance": balance,
+		"balance": data_balance,
 	})
 }
